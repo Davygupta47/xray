@@ -1,4 +1,4 @@
-import streamlit as st
+import argparse
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
@@ -6,12 +6,7 @@ from PIL import Image
 import torchvision.models as models
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = models.resnet18(weights=None)
-model.fc = nn.Linear(model.fc.in_features, 2)
-
-model.load_state_dict(torch.load("model/pneumonia_model.pth", map_location=device))
-model = model.to(device)
-model.eval()
+classes = ["Normal", "Pneumonia"]
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -20,24 +15,36 @@ transform = transforms.Compose([
                          [0.229, 0.224, 0.225])
 ])
 
-st.title("Pneumonia Detection from Chest X-Ray")
-st.write("Upload a chest X-ray image and get prediction")
+def load_model(model_path="model/pneumonia_model.pth"):
+    model = models.resnet18(weights=None)
+    model.fc = nn.Linear(model.fc.in_features, 2)
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model = model.to(device)
+    model.eval()
+    return model
 
-uploaded_file = st.file_uploader("Upload X-ray image", type=["jpg", "png", "jpeg"])
 
-if uploaded_file is not None:
-
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Uploaded X-ray", use_container_width=True)
-
-    img = transform(image)
-    img = img.unsqueeze(0).to(device)
+def predict_image(image_path, model):
+    image = Image.open(image_path).convert("RGB")
+    img = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
         outputs = model(img)
         _, pred = torch.max(outputs, 1)
 
-    classes = ["Normal", "Pneumonia"]
+    return classes[pred.item()]
 
-    st.subheader("Prediction:")
-    st.success(f"Result: {classes[pred.item()]}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Predict pneumonia from a chest X-ray image.")
+    parser.add_argument("--image", required=True, help="Path to input image (jpg/png/jpeg).")
+    parser.add_argument("--model", default="model/pneumonia_model.pth", help="Path to trained model weights.")
+    args = parser.parse_args()
+
+    model = load_model(args.model)
+    result = predict_image(args.image, model)
+    print(f"Prediction: {result}")
+
+
+if __name__ == "__main__":
+    main()

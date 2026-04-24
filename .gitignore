@@ -6,3 +6,4 @@ model/*pth
 *.jpeg
 *.pdf
 data/
+run.txt
