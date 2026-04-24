@@ -1,0 +1,8 @@
+venv/
+src/__pycache__/
+model/*pth
+*.png
+*.jpg
+*.jpeg
+*.pdf
+data/
