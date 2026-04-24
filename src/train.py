@@ -1,77 +1,81 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from data_loader import get_dataloaders
+from pathlib import Path
+
+from data import get_dataloaders
 from model import get_model
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+def train(data_dir: str = "../data") -> None:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    train_loader, val_loader = get_dataloaders(data_dir)
 
-data_dir = "../data"
-train_loader, val_loader = get_dataloaders(data_dir)
+    model = get_model(num_classes=2)
+    model = model.to(device)
 
-model = get_model(num_classes=2)
-model = model.to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.fc.parameters(), lr=0.001)
+    num_epochs = 5
+    best_val_acc = 0.0
 
-num_epochs = 5
-best_val_acc = 0.0
+    for epoch in range(num_epochs):
+        model.train()
+        train_loss = 0
+        correct = 0
+        total = 0
 
-for epoch in range(num_epochs):
-    model.train()
-    train_loss = 0
-    correct = 0
-    total = 0
-
-    for images, labels in train_loader:
-        images, labels = images.to(device), labels.to(device)
-
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        train_loss += loss.item()
-
-        _, preds = torch.max(outputs, 1)
-        correct += (preds == labels).sum().item()
-        total += labels.size(0)
-
-    train_acc = correct / total
-
-    model.eval()
-    val_correct = 0
-    val_total = 0
-    val_loss = 0
-
-    with torch.no_grad():
-        for images, labels in val_loader:
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
 
             outputs = model(images)
             loss = criterion(outputs, labels)
 
-            val_loss += loss.item()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
 
             _, preds = torch.max(outputs, 1)
-            val_correct += (preds == labels).sum().item()
-            val_total += labels.size(0)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
 
-    val_acc = val_correct / val_total
+        train_acc = correct / total
 
-    print(f"\nEpoch [{epoch+1}/{num_epochs}]")
-    print(f"Train Loss: {   train_loss:.4f} | Train Acc: {train_acc:.4f}")
-    print(f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
+        model.eval()
+        val_correct = 0
+        val_total = 0
+        val_loss = 0
 
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        torch.save(model.state_dict(), "../model/pneumonia_model.pth")
-        print("Best model saved!")
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images, labels = images.to(device), labels.to(device)
 
-print("\nTraining complete!")
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
+                val_loss += loss.item()
+
+                _, preds = torch.max(outputs, 1)
+                val_correct += (preds == labels).sum().item()
+                val_total += labels.size(0)
+
+        val_acc = val_correct / val_total
+
+        print(f"\nEpoch [{epoch+1}/{num_epochs}]")
+        print(f"Train Loss: {train_loss:.4f} | Train Acc: {train_acc:.4f}")
+        print(f"Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f}")
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            model_path = Path(__file__).resolve().parent.parent / "model" / "pneumonia_model.pth"
+            model_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(model.state_dict(), str(model_path))
+            print("Best model saved!")
+
+    print("\nTraining complete!")
+
 
 if __name__ == "__main__":
     train()

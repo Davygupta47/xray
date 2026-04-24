@@ -42,4 +42,4 @@ def get_dataloaders(data_dir, batch_size=32):
     return train_loader, val_loader
 
 if __name__ == "__main__":
-    train_loader, val_loader = get_dataloaders("data")
+    train_loader, val_loader = get_dataloaders("/content/xray/data")
