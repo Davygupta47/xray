@@ -51,9 +51,9 @@ def main():
     try:
         model = load_model(args.model)
         result = predict_image(args.image, model)
+        print(f"Prediction: {result}")
     except ValueError as exc:
         parser.error(str(exc))
-    print(f"Prediction: {result}")
 
 
 if __name__ == "__main__":
